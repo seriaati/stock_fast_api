@@ -1,5 +1,4 @@
 import argparse
-import asyncio
 from typing import Any, Dict, List
 
 import aiohttp

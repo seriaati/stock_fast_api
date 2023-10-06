@@ -35,6 +35,8 @@ async def bulk_update_or_create(objs: Sequence[TortoiseModel]) -> None:
 
 
 def float_string_to_int(s: str) -> int:
+    if s == "--":
+        return 0
     return int(float(s))
 
 
