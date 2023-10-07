@@ -1,5 +1,4 @@
 import datetime
-from typing import Sequence
 
 from tortoise.exceptions import IntegrityError
 from tortoise.models import Model as TortoiseModel
@@ -22,22 +21,17 @@ def get_today() -> datetime.date:
     return get_now().date()
 
 
-async def update_or_create(obj: TortoiseModel) -> None:
+async def ignore_conflict_create(obj: TortoiseModel) -> None:
     try:
         await obj.save()
     except IntegrityError:
         pass
 
 
-async def bulk_update_or_create(objs: Sequence[TortoiseModel]) -> None:
-    for obj in objs:
-        await update_or_create(obj)
-
-
 def float_string_to_int(s: str) -> int:
     if s == "--":
         return 0
-    return int(float(s))
+    return int(float(remove_comma(s)))
 
 
 def remove_comma(s: str) -> str:

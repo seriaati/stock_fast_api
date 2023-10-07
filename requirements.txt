@@ -1,3 +1,5 @@
 aiohttp
 fastapi
 tortoise-orm
+fake-useragent
+uvicorn

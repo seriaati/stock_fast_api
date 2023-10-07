@@ -1,53 +1,66 @@
 import argparse
+import asyncio
+import logging
 from typing import Any, Dict, List
 
 import aiohttp
+from fake_useragent import UserAgent
 from tortoise import Tortoise, run_async
 
-from models import HistoryTrade
-from utils import bulk_update_or_create, get_today
+from models import HistoryTrade, Stock
+from utils import get_today, ignore_conflict_create
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--init", action="store_true")
+parser.add_argument("--year", type=int, default=0)
 args = parser.parse_args()
 
+ua = UserAgent()
 
-async def fetch_stock_ids(session: aiohttp.ClientSession) -> List[str]:
+
+async def crawl_stocks(session: aiohttp.ClientSession) -> None:
     """
     取得上市公司代號與上櫃公司代號
     """
-    stock_ids: List[str] = []
     async with session.get(
-        "https://openapi.twse.com.tw/v1/opendata/t187ap03_L"
+        "https://openapi.twse.com.tw/v1/opendata/t187ap03_L",
+        headers={"User-Agent": ua.random},
     ) as resp:  # 取得所有上市公司代號
         data: List[Dict[str, str]] = await resp.json()
         for d in data:
             if d["公司代號"].isdigit():
                 stock_id = d["公司代號"]
-                stock_ids.append(stock_id)
+                await ignore_conflict_create(Stock(id=stock_id, name=d["公司簡稱"]))
 
     async with session.get(
-        "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes"
+        "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes",
+        headers={"User-Agent": ua.random},
     ) as resp:  # 取得所有上櫃公司代號
         data: List[Dict[str, str]] = await resp.json()
         for d in data:
             if d["SecuritiesCompanyCode"].isdigit():
                 stock_id = d["SecuritiesCompanyCode"]
-                stock_ids.append(stock_id)
-
-    return stock_ids
+                await ignore_conflict_create(Stock(id=stock_id, name=d["CompanyName"]))
 
 
-async def crawl_and_save_history_trades(
+async def crawl_history_trades(
     stock_id: str, date: str, session: aiohttp.ClientSession
 ) -> None:
-    url = f"https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date={date}&stockNo={stock_id}"
-    async with session.get(url) as resp:
-        data: Dict[str, Any] = await resp.json()
-        if data["total"] == 0:
-            return
-        history_trades = [HistoryTrade.parse(d, stock_id) for d in data["data"]]
-        await bulk_update_or_create(history_trades)
+    try:
+        url = f"https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date={date}&stockNo={stock_id}"
+        async with session.get(url, headers={"User-Agent": ua.random}) as resp:
+            data: Dict[str, Any] = await resp.json()
+            if data["total"] == 0:
+                return
+            history_trades = [HistoryTrade.parse(d, stock_id) for d in data["data"]]
+            for trade in history_trades:
+                await ignore_conflict_create(trade)
+    except Exception as e:
+        logging.error(
+            f"An error occurred while crawling history trades for {stock_id} on date {date}"
+        )
+        logging.exception(e)
 
 
 async def main():
@@ -58,20 +71,23 @@ async def main():
     date = today.strftime("%Y%m%d")
 
     async with aiohttp.ClientSession() as session:
-        stock_ids = await fetch_stock_ids(session)
+        await crawl_stocks(session)
+        stock_ids = [stock.id for stock in await Stock.all()]
         for stock_id in stock_ids:
             if len(stock_id) != 4:
                 continue
-            print("stock_id:", stock_id)
+            logging.info("stock_id:", stock_id)
 
-            if args.init:
+            if args.year == 0:
+                await crawl_history_trades(stock_id, date, session)
+            else:
                 for month in range(1, 13):
                     month_str = str(month).zfill(2)
-                    await crawl_and_save_history_trades(
-                        stock_id, f"{today.year}{month_str}01", session
+                    await crawl_history_trades(
+                        stock_id, f"{args.year}{month_str}01", session
                     )
-            else:
-                await crawl_and_save_history_trades(stock_id, date, session)
+
+            await asyncio.sleep(0.5)
 
 
 run_async(main())
