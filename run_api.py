@@ -1,3 +1,7 @@
+import os
+from typing import Optional
+
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from tortoise import Tortoise
 
@@ -8,7 +12,11 @@ app = FastAPI()
 
 @app.on_event("startup")
 async def startup():
-    await Tortoise.init(db_url="sqlite://db.sqlite3", modules={"models": ["models"]})
+    load_dotenv()
+    await Tortoise.init(
+        db_url=os.getenv("DB_URL") or "sqlite://db.sqlite3",
+        modules={"models": ["models"]},
+    )
     await Tortoise.generate_schemas()
 
 
@@ -19,11 +27,13 @@ async def shutdown():
 
 @app.get("/")
 async def root():
-    return {"message": "Stock Fast API v1.1.0"}
+    return {"message": "Stock Fast API v1.2.0"}
 
 
 @app.get("/history_trades/{stock_id}")
-async def stock_history_trades(stock_id: str, limit: int = 1):
+async def stock_history_trades(stock_id: str, limit: Optional[int] = None):
+    if limit is None:
+        return await HistoryTrade.filter(stock_id=stock_id).all().values()
     return (
         await HistoryTrade.filter(stock_id=stock_id)
         .order_by("-date")

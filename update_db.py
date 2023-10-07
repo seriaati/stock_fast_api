@@ -1,19 +1,28 @@
 import argparse
 import asyncio
 import logging
+import os
 from typing import Any, Dict, List
 
 import aiohttp
+from dotenv import load_dotenv
 from fake_useragent import UserAgent
 from tortoise import Tortoise, run_async
 
 from models import HistoryTrade, Stock
 from utils import get_today, ignore_conflict_create
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--year", type=int, default=0)
+parser.add_argument("--id", type=str, default="")
 args = parser.parse_args()
 
 ua = UserAgent()
@@ -64,24 +73,32 @@ async def crawl_history_trades(
 
 
 async def main():
-    await Tortoise.init(db_url="sqlite://db.sqlite3", modules={"models": ["models"]})
+    await Tortoise.init(
+        db_url=os.getenv("DB_URL") or "sqlite://db.sqlite3",
+        modules={"models": ["models"]},
+    )
     await Tortoise.generate_schemas()
 
     today = get_today()
     date = today.strftime("%Y%m%d")
 
     async with aiohttp.ClientSession() as session:
-        await crawl_stocks(session)
-        stock_ids = [stock.id for stock in await Stock.all()]
+        if args.id:
+            stock_ids = [args.id]
+        else:
+            await crawl_stocks(session)
+            stock_ids = [stock.id for stock in await Stock.all()]
+
         for stock_id in stock_ids:
             if len(stock_id) != 4:
                 continue
-            logging.info(f"Start crawling {stock_id}")
 
             if args.year == 0:
+                logging.info(f"Start crawling {stock_id} on date {date}")
                 await crawl_history_trades(stock_id, date, session)
             else:
                 for month in range(1, 13):
+                    logging.info(f"Start crawling {stock_id} on {args.year}-{month}")
                     month_str = str(month).zfill(2)
                     await crawl_history_trades(
                         stock_id, f"{args.year}{month_str}01", session
