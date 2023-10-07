@@ -76,7 +76,7 @@ async def main():
         for stock_id in stock_ids:
             if len(stock_id) != 4:
                 continue
-            logging.info("stock_id:", stock_id)
+            logging.info(f"Start crawling {stock_id}")
 
             if args.year == 0:
                 await crawl_history_trades(stock_id, date, session)
