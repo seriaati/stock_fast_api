@@ -10,8 +10,8 @@ class HistoryTrade(Model):
     date = fields.DateField()
     stock_id = fields.CharField(max_length=10)
 
-    total_volume = fields.IntField()
-    total_value = fields.IntField()
+    total_volume = fields.BigIntField()
+    total_value = fields.BigIntField()
 
     open_price = fields.IntField()
     high_price = fields.IntField()
