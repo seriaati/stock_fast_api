@@ -97,7 +97,10 @@ async def main():
                 logging.info(f"Start crawling {stock_id} on date {date}")
                 await crawl_history_trades(stock_id, date, session)
             else:
-                for month in range(1, 13):
+                max_month = 13
+                if args.year == today.year:
+                    max_month = today.month + 1
+                for month in range(1, max_month):
                     logging.info(f"Start crawling {stock_id} on {args.year}-{month}")
                     month_str = str(month).zfill(2)
                     await crawl_history_trades(
