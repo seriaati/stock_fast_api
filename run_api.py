@@ -47,7 +47,9 @@ async def stock_history_trades(stock_id: str, limit: Optional[int] = None):
 
 
 @app.get("/stocks")
-async def stocks():
+async def stocks(name: Optional[str] = None):
+    if name:
+        return await Stock.filter(name__icontains=name).values()
     return await Stock.all().values()
 
 
