@@ -2,8 +2,9 @@ import os
 from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from tortoise import Tortoise
+from tortoise.exceptions import DoesNotExist
 
 from models import HistoryTrade, Stock
 
@@ -33,10 +34,12 @@ async def root():
 @app.get("/history_trades/{stock_id}")
 async def stock_history_trades(stock_id: str, limit: Optional[int] = None):
     if limit is None:
-        return await HistoryTrade.filter(stock_id=stock_id).all().values()
+        return (
+            await HistoryTrade.filter(stock_id=stock_id).order_by("date").all().values()
+        )
     return (
         await HistoryTrade.filter(stock_id=stock_id)
-        .order_by("-date")
+        .order_by("date")
         .limit(limit)
         .all()
         .values()
@@ -50,4 +53,7 @@ async def stocks():
 
 @app.get("/stocks/{stock_id}")
 async def stock_detail(stock_id: str):
-    return await Stock.get(id=stock_id).values()
+    try:
+        return await Stock.get(id=stock_id).values()
+    except DoesNotExist:
+        raise HTTPException(status_code=404, detail="Stock not found")
