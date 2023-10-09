@@ -28,18 +28,21 @@ async def shutdown():
 
 @app.get("/")
 async def root():
-    return {"message": "Stock Fast API v1.2.2"}
+    return {"message": "Stock Fast API v1.2.3"}
 
 
 @app.get("/history_trades/{stock_id}")
 async def stock_history_trades(stock_id: str, limit: Optional[int] = None):
     if limit is None:
         return (
-            await HistoryTrade.filter(stock_id=stock_id).order_by("date").all().values()
+            await HistoryTrade.filter(stock_id=stock_id)
+            .order_by("-date")
+            .all()
+            .values()
         )
     return (
         await HistoryTrade.filter(stock_id=stock_id)
-        .order_by("date")
+        .order_by("-date")
         .limit(limit)
         .all()
         .values()
