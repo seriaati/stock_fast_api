@@ -28,7 +28,7 @@ async def shutdown():
 
 @app.get("/")
 async def root():
-    return {"message": "Stock Fast API v1.2.1"}
+    return {"message": "Stock Fast API v1.2.2"}
 
 
 @app.get("/history_trades/{stock_id}")
@@ -50,7 +50,7 @@ async def stock_history_trades(stock_id: str, limit: Optional[int] = None):
 async def stocks(name: Optional[str] = None):
     if name:
         try:
-            return await Stock.filter(name__icontains=name).values()
+            return await Stock.get(name=name).values()
         except DoesNotExist:
             raise HTTPException(status_code=404, detail="Stock not found")
     return await Stock.all().values()
