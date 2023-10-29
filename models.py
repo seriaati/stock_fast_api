@@ -13,10 +13,10 @@ class HistoryTrade(Model):
     total_volume = fields.BigIntField()
     total_value = fields.BigIntField()
 
-    open_price = fields.IntField()
-    high_price = fields.IntField()
-    low_price = fields.IntField()
-    close_price = fields.IntField()
+    open_price = fields.FloatField()
+    high_price = fields.FloatField()
+    low_price = fields.FloatField()
+    close_price = fields.FloatField()
 
     class Meta:
         unique_together = ("date", "stock_id")
