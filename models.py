@@ -3,7 +3,7 @@ from typing import List, Self
 from tortoise import fields
 from tortoise.models import Model
 
-from utils import float_string_to_int, remove_comma, roc_to_western_date
+from utils import remove_comma, roc_to_western_date, string_to_float
 
 
 class HistoryTrade(Model):
@@ -28,10 +28,10 @@ class HistoryTrade(Model):
             stock_id=stock_id,
             total_volume=int(remove_comma(data[1])),
             total_value=int(remove_comma(data[2])),
-            open_price=float_string_to_int(data[3]),
-            high_price=float_string_to_int(data[4]),
-            low_price=float_string_to_int(data[5]),
-            close_price=float_string_to_int(data[6]),
+            open_price=string_to_float(data[3]),
+            high_price=string_to_float(data[4]),
+            low_price=string_to_float(data[5]),
+            close_price=string_to_float(data[6]),
         )
 
 

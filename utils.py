@@ -28,10 +28,10 @@ async def ignore_conflict_create(obj: TortoiseModel) -> None:
         pass
 
 
-def float_string_to_int(s: str) -> int:
+def string_to_float(s: str) -> float:
     if s == "--":
         return 0
-    return int(float(remove_comma(s)))
+    return float(remove_comma(s))
 
 
 def remove_comma(s: str) -> str:
