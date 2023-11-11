@@ -22,6 +22,7 @@ logging.basicConfig(
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--year", type=int, default=0)
+parser.add_argument("--tpex-only", action="store_true", default=False)
 args = parser.parse_args()
 
 ua = UserAgent()
@@ -116,6 +117,8 @@ async def main():
 
         for stock_id_tuple in stock_id_tuples:
             stock_id, is_twse = stock_id_tuple
+            if args.tpex_only and is_twse:
+                continue
             if len(stock_id) != 4:
                 continue
 
