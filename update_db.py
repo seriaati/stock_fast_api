@@ -86,7 +86,7 @@ async def crawl_tpex_history_trades(
     try:
         url = f"https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_result.php?l=zh-tw&d={date}&stkno={stock_id}"
         async with session.get(url, headers={"User-Agent": ua.random}) as resp:
-            data: Dict[str, Any] = await resp.json()
+            data = await resp.json(content_type="text/html")
             if data["iTotalRecords"] == 0:
                 return
             history_trades = [
