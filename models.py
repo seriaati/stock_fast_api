@@ -22,12 +22,25 @@ class HistoryTrade(Model):
         unique_together = ("date", "stock_id")
 
     @classmethod
-    def parse(cls, data: List[str], stock_id: str) -> Self:
+    def parse_twse(cls, data: List[str], stock_id: str) -> Self:
         return cls(
             date=roc_to_western_date(data[0].replace("/", "")),
             stock_id=stock_id,
             total_volume=int(remove_comma(data[1])),
             total_value=int(remove_comma(data[2])),
+            open_price=string_to_float(data[3]),
+            high_price=string_to_float(data[4]),
+            low_price=string_to_float(data[5]),
+            close_price=string_to_float(data[6]),
+        )
+
+    @classmethod
+    def parse_tpex(cls, data: List[str], stock_id: str) -> Self:
+        return cls(
+            date=roc_to_western_date(data[0].replace("/", "")),
+            stock_id=stock_id,
+            total_volume=int(remove_comma(data[1])) * 1000,
+            total_value=int(remove_comma(data[2])) * 1000,
             open_price=string_to_float(data[3]),
             high_price=string_to_float(data[4]),
             low_price=string_to_float(data[5]),
