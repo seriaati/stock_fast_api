@@ -68,4 +68,5 @@ async def stock_detail(stock_id: str):
         raise HTTPException(status_code=404, detail="Stock not found")
 
 
-uvicorn.run("main:app", port=7080)
+if __name__ == "__main__":
+    uvicorn.run("main:app", port=7080, log_level="info")
