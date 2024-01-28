@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "stock-fast-api"
+version = "0.1.0"
+description = ""
+authors = ["seria <seria.ati@gmail.com>"]
+license = "GPL-v3.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+aiohttp = "^3.9.1"
+fastapi = "^0.109.0"
+tortoise-orm = "^0.20.0"
+fake-useragent = "^1.4.0"
+uvicorn = "^0.27.0"
+python-dotenv = "^1.0.1"
+asyncpg = "^0.29.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

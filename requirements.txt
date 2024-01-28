@@ -1,7 +1,0 @@
-aiohttp
-fastapi
-tortoise-orm
-fake-useragent
-uvicorn
-python-dotenv
-asyncpg
