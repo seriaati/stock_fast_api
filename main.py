@@ -1,6 +1,8 @@
 import os
-from typing import Optional
+from contextlib import asynccontextmanager
+from typing import Any, AsyncGenerator, Optional
 
+import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from tortoise import Tortoise
@@ -8,27 +10,26 @@ from tortoise.exceptions import DoesNotExist
 
 from models import HistoryTrade, Stock
 
-app = FastAPI()
+load_dotenv()
 
 
-@app.on_event("startup")
-async def startup():
-    load_dotenv()
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncGenerator[Any, Any]:
     await Tortoise.init(
         db_url=os.getenv("DB_URL") or "sqlite://db.sqlite3",
         modules={"models": ["models"]},
     )
     await Tortoise.generate_schemas()
-
-
-@app.on_event("shutdown")
-async def shutdown():
+    yield
     await Tortoise.close_connections()
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 @app.get("/")
 async def root():
-    return {"message": "Stock Fast API v1.2.3"}
+    return {"message": "Stock Fast API v1.3.0"}
 
 
 @app.get("/history_trades/{stock_id}")
@@ -65,3 +66,6 @@ async def stock_detail(stock_id: str):
         return await Stock.get(id=stock_id).values()
     except DoesNotExist:
         raise HTTPException(status_code=404, detail="Stock not found")
+
+
+uvicorn.run("main:app", port=7080)
