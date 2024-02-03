@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import datetime
 import logging
 import os
 from typing import Any, Dict, List, Tuple
@@ -9,20 +10,16 @@ from dotenv import load_dotenv
 from fake_useragent import UserAgent
 from tortoise import Tortoise, run_async
 
+from log_helper import setup_logging
 from models import HistoryTrade, Stock
 from utils import get_today, ignore_conflict_create
 
 load_dotenv()
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+LOGGER_ = logging.getLogger("update_db")
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--year", type=int, default=0)
-parser.add_argument("--tpex-only", action="store_true", default=False)
+parser.add_argument("--date", default="", help="Date to crawl")
 args = parser.parse_args()
 
 ua = UserAgent()
@@ -74,7 +71,7 @@ async def crawl_twse_history_trades(
             for trade in history_trades:
                 await ignore_conflict_create(trade)
     except Exception as e:
-        logging.error(
+        LOGGER_.error(
             f"An error occurred while crawling twse history trades for {stock_id} on date {date}",
             exc_info=e,
         )
@@ -95,20 +92,26 @@ async def crawl_tpex_history_trades(
             for trade in history_trades:
                 await ignore_conflict_create(trade)
     except Exception as e:
-        logging.error(
+        LOGGER_.error(
             f"An error occurred while crawling tpex history trades for {stock_id} on date {date}",
             exc_info=e,
         )
 
 
-async def main():
+async def main() -> None:
     await Tortoise.init(
         db_url=os.getenv("DB_URL") or "sqlite://db.sqlite3",
         modules={"models": ["models"]},
     )
     await Tortoise.generate_schemas()
 
-    today = get_today()
+    today = (
+        datetime.datetime.strptime(args.date, "%Y%m%d") if args.date else get_today()
+    )
+    if today.weekday() in {5, 6}:
+        LOGGER_.info("Today is not a trading day")
+        return
+
     twse_date = today.strftime("%Y%m%d")
     tpex_date = f"{today.year - 1911}/{today.month}"
 
@@ -117,36 +120,31 @@ async def main():
 
         for stock_id_tuple in stock_id_tuples:
             stock_id, is_twse = stock_id_tuple
-            if args.tpex_only and is_twse:
-                continue
+
             if len(stock_id) != 4:
                 continue
 
-            if args.year == 0:
-                if is_twse:
-                    logging.info(f"Start crawling {stock_id} on date {twse_date}")
-                    await crawl_twse_history_trades(stock_id, twse_date, session)
-                else:
-                    logging.info(f"Start crawling {stock_id} on date {tpex_date}")
-                    await crawl_tpex_history_trades(stock_id, tpex_date, session)
+            if is_twse:
+                LOGGER_.info(f"Start crawling {stock_id} on date {twse_date}")
+                await crawl_twse_history_trades(stock_id, twse_date, session)
             else:
-                max_month = 13
-                if args.year == today.year:
-                    max_month = today.month + 1
+                LOGGER_.info(f"Start crawling {stock_id} on date {tpex_date}")
+                await crawl_tpex_history_trades(stock_id, tpex_date, session)
 
-                for month in range(1, max_month):
-                    logging.info(f"Start crawling {stock_id} on {args.year}/{month}")
-                    month_str = str(month).zfill(2)
-                    if is_twse:
-                        await crawl_twse_history_trades(
-                            stock_id, f"{args.year}{month_str}01", session
-                        )
-                    else:
-                        await crawl_tpex_history_trades(
-                            stock_id, f"{args.year - 1911}/{month_str}", session
-                        )
+            for month in range(1, today.month + 1):
+                LOGGER_.info(f"Start crawling {stock_id} on {today.year}/{month}")
+                month_str = str(month).zfill(2)
+                if is_twse:
+                    await crawl_twse_history_trades(
+                        stock_id, f"{today.year}{month_str}01", session
+                    )
+                else:
+                    await crawl_tpex_history_trades(
+                        stock_id, f"{today.year - 1911}/{month_str}", session
+                    )
 
             await asyncio.sleep(0.5)
 
 
-run_async(main())
+with setup_logging():
+    run_async(main())
