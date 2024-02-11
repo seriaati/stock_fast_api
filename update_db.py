@@ -30,6 +30,7 @@ async def crawl_stocks(session: aiohttp.ClientSession) -> List[Tuple[str, bool]]
     取得上市公司代號與上櫃公司代號
     """
     result: List[Tuple[str, bool]] = []
+    stocks: list[Stock] = []
 
     async with session.get(
         "https://openapi.twse.com.tw/v1/opendata/t187ap03_L",
@@ -40,7 +41,7 @@ async def crawl_stocks(session: aiohttp.ClientSession) -> List[Tuple[str, bool]]
             if d["公司代號"].isdigit():
                 stock_id = d["公司代號"]
                 result.append((stock_id, True))
-                await ignore_conflict_create(Stock(id=stock_id, name=d["公司簡稱"]))
+                stocks.append(Stock(id=stock_id, name=d["公司簡稱"]))
 
     async with session.get(
         "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes",
@@ -51,8 +52,10 @@ async def crawl_stocks(session: aiohttp.ClientSession) -> List[Tuple[str, bool]]
             if d["SecuritiesCompanyCode"].isdigit():
                 stock_id = d["SecuritiesCompanyCode"]
                 result.append((stock_id, False))
-                await ignore_conflict_create(Stock(id=stock_id, name=d["CompanyName"]))
+                stocks.append(Stock(id=stock_id, name=d["CompanyName"]))
 
+    await ignore_conflict_create(stocks)
+    LOGGER_.info("Finished crawling stocks, total: %d", len(result))
     return result
 
 
@@ -68,12 +71,15 @@ async def crawl_twse_history_trades(
             history_trades = [
                 HistoryTrade.parse_twse(d, stock_id) for d in data["data"]
             ]
-            for trade in history_trades:
-                await ignore_conflict_create(trade)
-    except Exception as e:
-        LOGGER_.error(
-            f"An error occurred while crawling twse history trades for {stock_id} on date {date}",
-            exc_info=e,
+            created = await ignore_conflict_create(history_trades)
+            LOGGER_.info(
+                "Created %d history trades for %s on date", created, stock_id, date
+            )
+    except Exception:
+        LOGGER_.exception(
+            "Error occurred while crawling twse history trades for %s on date %s",
+            stock_id,
+            date,
         )
 
 
@@ -89,12 +95,15 @@ async def crawl_tpex_history_trades(
             history_trades = [
                 HistoryTrade.parse_twse(d, stock_id) for d in data["aaData"]
             ]
-            for trade in history_trades:
-                await ignore_conflict_create(trade)
-    except Exception as e:
-        LOGGER_.error(
-            f"An error occurred while crawling tpex history trades for {stock_id} on date {date}",
-            exc_info=e,
+            created = await ignore_conflict_create(history_trades)
+            LOGGER_.info(
+                "Created %d history trades for %s on date %s", created, stock_id, date
+            )
+    except Exception:
+        LOGGER_.exception(
+            "Error occurred while crawling tpex history trades for %s on date %s",
+            stock_id,
+            date,
         )
 
 
@@ -125,23 +134,9 @@ async def main() -> None:
                 continue
 
             if is_twse:
-                LOGGER_.info(f"Start crawling {stock_id} on date {twse_date}")
                 await crawl_twse_history_trades(stock_id, twse_date, session)
             else:
-                LOGGER_.info(f"Start crawling {stock_id} on date {tpex_date}")
                 await crawl_tpex_history_trades(stock_id, tpex_date, session)
-
-            for month in range(1, today.month + 1):
-                LOGGER_.info(f"Start crawling {stock_id} on {today.year}/{month}")
-                month_str = str(month).zfill(2)
-                if is_twse:
-                    await crawl_twse_history_trades(
-                        stock_id, f"{today.year}{month_str}01", session
-                    )
-                else:
-                    await crawl_tpex_history_trades(
-                        stock_id, f"{today.year - 1911}/{month_str}", session
-                    )
 
             await asyncio.sleep(0.5)
 

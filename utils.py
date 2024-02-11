@@ -1,4 +1,6 @@
+import contextlib
 import datetime
+from typing import Sequence
 
 from tortoise.exceptions import IntegrityError
 from tortoise.models import Model as TortoiseModel
@@ -21,11 +23,14 @@ def get_today() -> datetime.date:
     return get_now().date()
 
 
-async def ignore_conflict_create(obj: TortoiseModel) -> None:
-    try:
-        await obj.save()
-    except IntegrityError:
-        pass
+async def ignore_conflict_create(objs: Sequence[TortoiseModel]) -> int:
+    success = 0
+    with contextlib.suppress(IntegrityError):
+        for obj in objs:
+            await obj.save()
+            success += 1
+
+    return success
 
 
 def string_to_float(s: str) -> float:
