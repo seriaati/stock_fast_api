@@ -1,9 +1,4 @@
-import contextlib
 import datetime
-from typing import Sequence
-
-from tortoise.exceptions import IntegrityError
-from tortoise.models import Model as TortoiseModel
 
 
 def roc_to_western_date(roc_date_str: str) -> datetime.date:
@@ -22,16 +17,6 @@ def get_now() -> datetime.datetime:
 
 def get_today() -> datetime.date:
     return get_now().date()
-
-
-async def ignore_conflict_create(objs: Sequence[TortoiseModel]) -> int:
-    success = 0
-    with contextlib.suppress(IntegrityError):
-        for obj in objs:
-            await obj.save()
-            success += 1
-
-    return success
 
 
 def string_to_float(s: str) -> float:

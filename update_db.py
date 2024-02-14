@@ -12,7 +12,7 @@ from tortoise import Tortoise, run_async
 
 from log_helper import setup_logging
 from models import HistoryTrade, Stock
-from utils import get_today, ignore_conflict_create
+from utils import get_today
 
 load_dotenv()
 
@@ -30,7 +30,6 @@ async def crawl_stocks(session: aiohttp.ClientSession) -> List[Tuple[str, bool]]
     取得上市公司代號與上櫃公司代號
     """
     result: List[Tuple[str, bool]] = []
-    stocks: list[Stock] = []
 
     async with session.get(
         "https://openapi.twse.com.tw/v1/opendata/t187ap03_L",
@@ -41,7 +40,7 @@ async def crawl_stocks(session: aiohttp.ClientSession) -> List[Tuple[str, bool]]
             if d["公司代號"].isdigit():
                 stock_id = d["公司代號"]
                 result.append((stock_id, True))
-                stocks.append(Stock(id=stock_id, name=d["公司簡稱"]))
+                await Stock(id=stock_id, name=d["公司簡稱"]).silent_create()
 
     async with session.get(
         "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes",
@@ -52,9 +51,8 @@ async def crawl_stocks(session: aiohttp.ClientSession) -> List[Tuple[str, bool]]
             if d["SecuritiesCompanyCode"].isdigit():
                 stock_id = d["SecuritiesCompanyCode"]
                 result.append((stock_id, False))
-                stocks.append(Stock(id=stock_id, name=d["CompanyName"]))
+                await Stock(id=stock_id, name=d["CompanyName"]).silent_create()
 
-    await ignore_conflict_create(stocks)
     LOGGER_.info("Finished crawling stocks, total: %d", len(result))
     return result
 
@@ -67,14 +65,13 @@ async def crawl_twse_history_trades(
         async with session.get(url, headers={"User-Agent": ua.random}) as resp:
             data: Dict[str, Any] = await resp.json()
             if data["total"] == 0:
-                return
-            history_trades = [
-                HistoryTrade.parse_twse(d, stock_id) for d in data["data"]
-            ]
-            created = await ignore_conflict_create(history_trades)
-            LOGGER_.info(
-                "Created %d history trades for %s on date", created, stock_id, date
-            )
+
+            for d in data["data"]:
+                history_trade = await HistoryTrade.parse_twse(
+                    d, stock_id
+                ).silent_create()
+                if history_trade is not None:
+                    created += 1
     except Exception:
         LOGGER_.exception(
             "Error occurred while crawling twse history trades for %s on date %s",
@@ -91,14 +88,13 @@ async def crawl_tpex_history_trades(
         async with session.get(url, headers={"User-Agent": ua.random}) as resp:
             data = await resp.json(content_type="text/html")
             if data["iTotalRecords"] == 0:
-                return
-            history_trades = [
-                HistoryTrade.parse_twse(d, stock_id) for d in data["aaData"]
-            ]
-            created = await ignore_conflict_create(history_trades)
-            LOGGER_.info(
-                "Created %d history trades for %s on date %s", created, stock_id, date
-            )
+
+            for d in data["aaData"]:
+                history_trade = await HistoryTrade.parse_tpex(
+                    d, stock_id
+                ).silent_create()
+                if history_trade is not None:
+                    created += 1
     except Exception:
         LOGGER_.exception(
             "Error occurred while crawling tpex history trades for %s on date %s",
