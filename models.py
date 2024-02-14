@@ -1,7 +1,7 @@
 from typing import List, Self
 
+from seria.tortoise.model import Model
 from tortoise import fields
-from tortoise.models import Model
 
 from utils import remove_comma, roc_to_western_date, string_to_float
 
