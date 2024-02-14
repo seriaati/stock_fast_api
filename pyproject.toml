@@ -20,6 +20,7 @@ seria-library = {git = "https://github.com/seriaati/seria-library"}
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.2.1"
+pre-commit = "^3.6.1"
 
 [build-system]
 requires = ["poetry-core"]
