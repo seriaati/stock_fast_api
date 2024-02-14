@@ -59,12 +59,15 @@ async def crawl_stocks(session: aiohttp.ClientSession) -> List[Tuple[str, bool]]
 
 async def crawl_twse_history_trades(
     stock_id: str, date: str, session: aiohttp.ClientSession
-) -> None:
+) -> int:
     try:
         url = f"https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date={date}&stockNo={stock_id}"
+
+        created = 0
         async with session.get(url, headers={"User-Agent": ua.random}) as resp:
             data: Dict[str, Any] = await resp.json()
             if data["total"] == 0:
+                return 0
 
             for d in data["data"]:
                 history_trade = await HistoryTrade.parse_twse(
@@ -72,22 +75,27 @@ async def crawl_twse_history_trades(
                 ).silent_create()
                 if history_trade is not None:
                     created += 1
+
+            LOGGER_.info("Created %d history trades for %s", created, stock_id)
     except Exception:
         LOGGER_.exception(
-            "Error occurred while crawling twse history trades for %s on date %s",
-            stock_id,
-            date,
+            "Error occurred while crawling twse history trades for %s", stock_id
         )
+        return 0
+    else:
+        return created
 
 
 async def crawl_tpex_history_trades(
     stock_id: str, date: str, session: aiohttp.ClientSession
-) -> None:
+) -> int:
     try:
+        created = 0
         url = f"https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_result.php?l=zh-tw&d={date}&stkno={stock_id}"
         async with session.get(url, headers={"User-Agent": ua.random}) as resp:
             data = await resp.json(content_type="text/html")
             if data["iTotalRecords"] == 0:
+                return 0
 
             for d in data["aaData"]:
                 history_trade = await HistoryTrade.parse_tpex(
@@ -95,12 +103,15 @@ async def crawl_tpex_history_trades(
                 ).silent_create()
                 if history_trade is not None:
                     created += 1
+
+            LOGGER_.info("Created %d history trades for %s", created, stock_id)
     except Exception:
         LOGGER_.exception(
-            "Error occurred while crawling tpex history trades for %s on date %s",
-            stock_id,
-            date,
+            "Error occurred while crawling tpex history trades for %s", stock_id
         )
+        return 0
+    else:
+        return created
 
 
 async def main() -> None:
@@ -119,6 +130,7 @@ async def main() -> None:
 
     twse_date = today.strftime("%Y%m%d")
     tpex_date = f"{today.year - 1911}/{today.month}"
+    total = 0
 
     async with aiohttp.ClientSession() as session:
         stock_id_tuples = await crawl_stocks(session)
@@ -130,11 +142,14 @@ async def main() -> None:
                 continue
 
             if is_twse:
-                await crawl_twse_history_trades(stock_id, twse_date, session)
+                created = await crawl_twse_history_trades(stock_id, twse_date, session)
             else:
-                await crawl_tpex_history_trades(stock_id, tpex_date, session)
+                created = await crawl_tpex_history_trades(stock_id, tpex_date, session)
+            total += created
 
             await asyncio.sleep(0.5)
+
+    LOGGER_.info("Total created: %d", total)
 
 
 with setup_logging():
