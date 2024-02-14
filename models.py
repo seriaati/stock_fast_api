@@ -24,7 +24,7 @@ class HistoryTrade(Model):
     @classmethod
     def parse_twse(cls, data: List[str], stock_id: str) -> Self:
         return cls(
-            date=roc_to_western_date(data[0].replace("/", "")),
+            date=roc_to_western_date(data[0]),
             stock_id=stock_id,
             total_volume=int(remove_comma(data[1])),
             total_value=int(remove_comma(data[2])),

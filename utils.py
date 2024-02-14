@@ -9,6 +9,7 @@ from tortoise.models import Model as TortoiseModel
 def roc_to_western_date(roc_date_str: str) -> datetime.date:
     """將民國年轉換成西元年"""
     # format: 1100101
+    roc_date_str = roc_date_str.replace("/", "").replace("*", "")
     year = roc_date_str[:3]
     month = roc_date_str[3:5]
     day = roc_date_str[5:]
