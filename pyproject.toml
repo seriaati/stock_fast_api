@@ -15,7 +15,11 @@ fake-useragent = "^1.4.0"
 uvicorn = "^0.27.0"
 python-dotenv = "^1.0.1"
 asyncpg = "^0.29.0"
+seria-library = {git = "https://github.com/seriaati/seria-library"}
 
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.2.1"
 
 [build-system]
 requires = ["poetry-core"]
