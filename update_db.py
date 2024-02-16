@@ -41,7 +41,7 @@ async def crawl_stocks(session: CachedSession) -> List[Tuple[str, bool]]:
             if d["公司代號"].isdigit():
                 stock_id = d["公司代號"]
                 result.append((stock_id, True))
-                await Stock(id=stock_id, name=d["公司簡稱"]).silent_create()
+                await Stock.silent_create(id=stock_id, name=d["公司簡稱"])
 
     async with session.get(
         "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes",
@@ -52,7 +52,7 @@ async def crawl_stocks(session: CachedSession) -> List[Tuple[str, bool]]:
             if d["SecuritiesCompanyCode"].isdigit():
                 stock_id = d["SecuritiesCompanyCode"]
                 result.append((stock_id, False))
-                await Stock(id=stock_id, name=d["CompanyName"]).silent_create()
+                await Stock.silent_create(id=stock_id, name=d["CompanyName"])
 
     LOGGER_.info("Finished crawling stocks, total: %d", len(result))
     return result
@@ -71,11 +71,9 @@ async def crawl_twse_history_trades(
                 return 0
 
             for d in data["data"]:
-                history_trade = await HistoryTrade.parse_twse(
-                    d, stock_id
-                ).silent_create()
-                if history_trade is not None:
-                    created += 1
+                history_trade = HistoryTrade.parse_twse(d, stock_id)
+                saved = await history_trade.silent_save()
+                created += 1 if saved else 0
 
             LOGGER_.info("Created %d history trades for %s", created, stock_id)
     except Exception:
@@ -99,11 +97,9 @@ async def crawl_tpex_history_trades(
                 return 0
 
             for d in data["aaData"]:
-                history_trade = await HistoryTrade.parse_tpex(
-                    d, stock_id
-                ).silent_create()
-                if history_trade is not None:
-                    created += 1
+                history_trade = HistoryTrade.parse_tpex(d, stock_id)
+                saved = await history_trade.silent_save()
+                created += 1 if saved else 0
 
             LOGGER_.info("Created %d history trades for %s", created, stock_id)
     except Exception:
