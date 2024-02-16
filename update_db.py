@@ -5,7 +5,8 @@ import logging
 import os
 from typing import Any, Dict, List, Tuple
 
-import aiohttp
+from aiohttp_client_cache.backends.sqlite import SQLiteBackend
+from aiohttp_client_cache.session import CachedSession
 from dotenv import load_dotenv
 from fake_useragent import UserAgent
 from tortoise import Tortoise, run_async
@@ -25,7 +26,7 @@ args = parser.parse_args()
 ua = UserAgent()
 
 
-async def crawl_stocks(session: aiohttp.ClientSession) -> List[Tuple[str, bool]]:
+async def crawl_stocks(session: CachedSession) -> List[Tuple[str, bool]]:
     """
     取得上市公司代號與上櫃公司代號
     """
@@ -58,7 +59,7 @@ async def crawl_stocks(session: aiohttp.ClientSession) -> List[Tuple[str, bool]]
 
 
 async def crawl_twse_history_trades(
-    stock_id: str, date: str, session: aiohttp.ClientSession
+    stock_id: str, date: str, session: CachedSession
 ) -> int:
     try:
         url = f"https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date={date}&stockNo={stock_id}"
@@ -87,7 +88,7 @@ async def crawl_twse_history_trades(
 
 
 async def crawl_tpex_history_trades(
-    stock_id: str, date: str, session: aiohttp.ClientSession
+    stock_id: str, date: str, session: CachedSession
 ) -> int:
     try:
         created = 0
@@ -132,8 +133,7 @@ async def main() -> None:
     tpex_date = f"{today.year - 1911}/{today.month}"
     total = 0
 
-    async with aiohttp.ClientSession() as session:
-        stock_id_tuples = await crawl_stocks(session)
+    async with CachedSession(cache=SQLiteBackend(expire_after=60 * 60)) as session:
 
         for stock_id_tuple in stock_id_tuples:
             stock_id, is_twse = stock_id_tuple
