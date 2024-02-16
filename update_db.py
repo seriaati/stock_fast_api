@@ -21,6 +21,7 @@ LOGGER_ = logging.getLogger("update_db")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--date", default="", help="Date to crawl")
+parser.add_argument("--test", action="store_true", help="Test mode", default=False)
 args = parser.parse_args()
 
 ua = UserAgent()
@@ -118,9 +119,15 @@ async def main() -> None:
     )
     await Tortoise.generate_schemas()
 
-    today = (
-        datetime.datetime.strptime(args.date, "%Y%m%d") if args.date else get_today()
-    )
+    if args.test:
+        today = datetime.datetime(2024, 2, 16)
+    else:
+        today = (
+            datetime.datetime.strptime(args.date, "%Y%m%d")
+            if args.date
+            else get_today()
+        )
+
     if today.weekday() in {5, 6}:
         LOGGER_.info("Today is not a trading day")
         return
@@ -130,6 +137,10 @@ async def main() -> None:
     total = 0
 
     async with CachedSession(cache=SQLiteBackend(expire_after=60 * 60)) as session:
+        if args.test:
+            stock_id_tuples = [("2330", True), ("6417", False)]
+        else:
+            stock_id_tuples = await crawl_stocks(session)
 
         for stock_id_tuple in stock_id_tuples:
             stock_id, is_twse = stock_id_tuple
