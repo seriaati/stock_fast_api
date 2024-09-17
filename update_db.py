@@ -47,6 +47,7 @@ async def crawl_stocks(session: CachedSession) -> List[Tuple[str, bool]]:
     async with session.get(
         "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes",
         headers={"User-Agent": ua.random},
+        proxy=os.getenv("PROXY"),
     ) as resp:  # 取得所有上櫃公司代號
         data: List[Dict[str, str]] = await resp.json()
         for d in data:
@@ -92,7 +93,7 @@ async def crawl_tpex_history_trades(
     try:
         created = 0
         url = f"https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_result.php?l=zh-tw&d={date}&stkno={stock_id}"
-        async with session.get(url, headers={"User-Agent": ua.random}) as resp:
+        async with session.get(url, headers={"User-Agent": ua.random}, proxy=os.getenv("PROXY")) as resp:
             data = await resp.json(content_type="text/html")
             if data["iTotalRecords"] == 0:
                 return 0
@@ -136,9 +137,7 @@ async def main() -> None:
     tpex_date = f"{today.year - 1911}/{today.month}"
     total = 0
 
-    async with CachedSession(
-        cache=SQLiteBackend(expire_after=60 * 60), proxy=os.getenv("PROXY")
-    ) as session:
+    async with CachedSession(cache=SQLiteBackend(expire_after=60 * 60)) as session:
         if args.test:
             stock_id_tuples = [("2330", True), ("6417", False)]
         else:
