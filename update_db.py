@@ -136,7 +136,9 @@ async def main() -> None:
     tpex_date = f"{today.year - 1911}/{today.month}"
     total = 0
 
-    async with CachedSession(cache=SQLiteBackend(expire_after=60 * 60)) as session:
+    async with CachedSession(
+        cache=SQLiteBackend(expire_after=60 * 60), proxy=os.getenv("PROXY")
+    ) as session:
         if args.test:
             stock_id_tuples = [("2330", True), ("6417", False)]
         else:
