@@ -12,7 +12,7 @@ python = "^3.11"
 fastapi = "^0.115.0"
 tortoise-orm = "^0.21.0"
 fake-useragent = "^1.4.0"
-uvicorn = "^0.30.0"
+uvicorn = "^0.31.0"
 python-dotenv = "^1.0.1"
 asyncpg = "^0.29.0"
 seria-library = {git = "https://github.com/seriaati/seria-library"}
