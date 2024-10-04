@@ -1,28 +1,17 @@
-[tool.poetry]
+[project]
 name = "stock-fast-api"
-version = "1.4.0"
-description = ""
-authors = ["seria <seria.ati@gmail.com>"]
-license = "GPL-v3.0"
+version = "0.1.0"
+description = "Add your description here"
 readme = "README.md"
-package-mode = false
-
-[tool.poetry.dependencies]
-python = "^3.11"
-fastapi = "^0.115.0"
-tortoise-orm = "^0.21.0"
-fake-useragent = "^1.4.0"
-uvicorn = "^0.31.0"
-python-dotenv = "^1.0.1"
-asyncpg = "^0.29.0"
-seria-library = {git = "https://github.com/seriaati/seria-library"}
-aiohttp-client-cache = {extras = ["sqlite"], version = "^0.12.0"}
-
-
-[tool.poetry.group.dev.dependencies]
-ruff = "^0.6.0"
-pre-commit = "^3.6.1"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp-client-cache>=0.12.2",
+    "fake-useragent>=1.5.1",
+    "fastapi>=0.115.0",
+    "python-dotenv>=1.0.1",
+    "seria-library[tortoise]>=1.5.4",
+    "tortoise-orm[asyncpg]>=0.21.6",
+    "uvicorn>=0.31.0",
+]
+license = { file = "LICENSE" }
+authors = [{ name = "seriaati", email = "seria.ati@gmail.com" }]
