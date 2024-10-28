@@ -1,3 +1,4 @@
+import datetime
 from typing import List, Self
 
 from seria.tortoise.model import Model
@@ -6,7 +7,18 @@ from tortoise import fields
 from utils import remove_comma, roc_to_western_date, string_to_float
 
 
-class HistoryTrade(Model):
+class BaseModel(Model):
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}({', '.join(f'{field}={getattr(self, field)!r}' for field in self._meta.db_fields if hasattr(self, field))})"
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    class Meta:
+        abstract = True
+
+
+class HistoryTrade(BaseModel):
     date = fields.DateField()
     stock_id = fields.CharField(max_length=10)
 
@@ -35,19 +47,19 @@ class HistoryTrade(Model):
         )
 
     @classmethod
-    def parse_tpex(cls, data: List[str], stock_id: str) -> Self:
+    def parse_tpex(cls, data: List[str], date: datetime.date) -> Self:
         return cls(
-            date=roc_to_western_date(data[0].replace("/", "")),
-            stock_id=stock_id,
-            total_volume=int(remove_comma(data[1])) * 1000,
-            total_value=int(remove_comma(data[2])) * 1000,
-            open_price=string_to_float(data[3]),
-            high_price=string_to_float(data[4]),
-            low_price=string_to_float(data[5]),
-            close_price=string_to_float(data[6]),
+            date=date,
+            stock_id=data[0],
+            close_price=string_to_float(data[2]),
+            open_price=string_to_float(data[4]),
+            high_price=string_to_float(data[5]),
+            low_price=string_to_float(data[6]),
+            total_volume=int(remove_comma(data[7])),
+            total_value=int(remove_comma(data[8])),
         )
 
 
-class Stock(Model):
+class Stock(BaseModel):
     id = fields.CharField(max_length=10, pk=True)
     name = fields.CharField(max_length=10)

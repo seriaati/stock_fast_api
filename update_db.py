@@ -5,8 +5,8 @@ import logging
 import os
 from typing import Any, Dict, List, Tuple
 
-from aiohttp_client_cache.backends.sqlite import SQLiteBackend
-from aiohttp_client_cache.session import CachedSession
+import aiohttp
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from fake_useragent import UserAgent
 from tortoise import Tortoise, run_async
@@ -27,7 +27,7 @@ args = parser.parse_args()
 ua = UserAgent()
 
 
-async def crawl_stocks(session: CachedSession) -> List[Tuple[str, bool]]:
+async def crawl_stocks(session: aiohttp.ClientSession) -> List[Tuple[str, bool]]:
     """
     取得上市公司代號與上櫃公司代號
     """
@@ -55,12 +55,12 @@ async def crawl_stocks(session: CachedSession) -> List[Tuple[str, bool]]:
                 result.append((stock_id, False))
                 await Stock.silent_create(id=stock_id, name=d["CompanyName"])
 
-    LOGGER_.info("Finished crawling stocks, total: %d", len(result))
+    LOGGER_.info("Finished crawling stock IDs, total: %d", len(result))
     return result
 
 
 async def crawl_twse_history_trades(
-    stock_id: str, date: str, session: CachedSession
+    stock_id: str, date: str, session: aiohttp.ClientSession
 ) -> int:
     try:
         url = f"https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date={date}&stockNo={stock_id}"
@@ -87,29 +87,39 @@ async def crawl_twse_history_trades(
 
 
 async def crawl_tpex_history_trades(
-    stock_id: str, date: str, session: CachedSession
+    session: aiohttp.ClientSession, *, date: datetime.date
 ) -> int:
     try:
-        created = 0
-        url = f"https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_result.php?l=zh-tw&d={date}&stkno={stock_id}"
-        async with session.get(url, headers={"User-Agent": ua.random}) as resp:
-            data = await resp.json(content_type="text/html")
-            if data["iTotalRecords"] == 0:
-                return 0
-
-            for d in data["aaData"]:
-                history_trade = HistoryTrade.parse_tpex(d, stock_id)
-                saved = await history_trade.silent_save()
-                created += 1 if saved else 0
-
-            LOGGER_.info("Created %d history trades for %s", created, stock_id)
+        url = f"https://www.tpex.org.tw/www/zh-tw/afterTrading/otc?date={date.year}%2F{date.month}%2F{date.day}&type=EW&id=&response=html&order=0&sort=asc"
+        async with aiohttp.ClientSession() as session, session.get(url) as resp:
+            html = await resp.text()
     except Exception:
-        LOGGER_.exception(
-            "Error occurred while crawling tpex history trades for %s", stock_id
-        )
+        LOGGER_.exception("Error occurred while crawling tpex history trades")
         return 0
-    else:
-        return created
+
+    created = 0
+    soup = BeautifulSoup(html, "lxml")
+    tbody = soup.find("table").find("tbody")  # pyright: ignore[reportOptionalMemberAccess]
+
+    for tr in tbody.find_all("tr"):  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
+        try:
+            trade = HistoryTrade.parse_tpex(
+                [td.text for td in tr.find_all("td")], datetime.date(2024, 10, 28)
+            )
+        except Exception:
+            LOGGER_.exception("Error occurred while parsing tpex history trades")
+            continue
+
+        if len(trade.stock_id) != 4:
+            continue
+
+        saved = await trade.silent_save()
+        created += 1 if saved else 0
+        LOGGER_.info(
+            "Created %d history trades for %s", 1 if saved else 0, trade.stock_id
+        )
+
+    return created
 
 
 async def main() -> None:
@@ -133,27 +143,22 @@ async def main() -> None:
         return
 
     twse_date = today.strftime("%Y%m%d")
-    tpex_date = f"{today.year - 1911}/{today.month}"
     total = 0
 
-    async with CachedSession(cache=SQLiteBackend(expire_after=60 * 60)) as session:
+    async with aiohttp.ClientSession() as session:
         if args.test:
-            stock_id_tuples = [("2330", True), ("6417", False)]
+            stock_ids = [("2330", True), ("6417", False)]
         else:
-            stock_id_tuples = await crawl_stocks(session)
+            stock_ids = await crawl_stocks(session)
 
-        for stock_id_tuple in stock_id_tuples:
-            stock_id, is_twse = stock_id_tuple
+        total += await crawl_tpex_history_trades(session, date=today)
 
-            if len(stock_id) != 4:
+        for stock_id, is_twse in stock_ids:
+            if len(stock_id) != 4 or not is_twse:
                 continue
 
-            if is_twse:
-                created = await crawl_twse_history_trades(stock_id, twse_date, session)
-            else:
-                created = await crawl_tpex_history_trades(stock_id, tpex_date, session)
+            created = await crawl_twse_history_trades(stock_id, twse_date, session)
             total += created
-
             await asyncio.sleep(0.5)
 
     LOGGER_.info("Total created: %d", total)

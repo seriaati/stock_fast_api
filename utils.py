@@ -20,7 +20,7 @@ def get_today() -> datetime.date:
 
 
 def string_to_float(s: str) -> float:
-    if s == "--":
+    if "--" in s:
         return 0
     return float(remove_comma(s))
 
