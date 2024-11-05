@@ -3,6 +3,7 @@ from typing import List, Self
 
 from seria.tortoise.model import Model
 from tortoise import fields
+from tortoise.exceptions import IntegrityError
 
 from utils import remove_comma, roc_to_western_date, string_to_float
 
@@ -58,6 +59,19 @@ class HistoryTrade(BaseModel):
             total_volume=int(remove_comma(data[7])),
             total_value=int(remove_comma(data[8])),
         )
+
+    async def create_or_update(self) -> None:
+        try:
+            await self.save()
+        except IntegrityError:
+            await HistoryTrade.filter(date=self.date, stock_id=self.stock_id).update(
+                close_price=self.close_price,
+                open_price=self.open_price,
+                high_price=self.high_price,
+                low_price=self.low_price,
+                total_volume=self.total_volume,
+                total_value=self.total_value,
+            )
 
 
 class Stock(BaseModel):

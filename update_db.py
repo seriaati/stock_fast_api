@@ -76,8 +76,8 @@ async def crawl_twse_history_trades(
 
             for d in data["data"]:
                 history_trade = HistoryTrade.parse_twse(d, stock_id)
-                saved = await history_trade.silent_save()
-                created += 1 if saved else 0
+                await history_trade.create_or_update()
+                created += 1
 
             LOGGER_.info("Created %d history trades for %s", created, stock_id)
     except Exception:
@@ -106,9 +106,7 @@ async def crawl_tpex_history_trades(
 
     for tr in tbody.find_all("tr"):  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
         try:
-            trade = HistoryTrade.parse_tpex(
-                [td.text for td in tr.find_all("td")], get_today()
-            )
+            trade = HistoryTrade.parse_tpex([td.text for td in tr.find_all("td")], date)
         except Exception:
             LOGGER_.exception("Error occurred while parsing tpex history trades")
             continue
@@ -116,11 +114,9 @@ async def crawl_tpex_history_trades(
         if len(trade.stock_id) != 4:
             continue
 
-        saved = await trade.silent_save()
-        created += 1 if saved else 0
-        LOGGER_.info(
-            "Created %d history trades for %s", 1 if saved else 0, trade.stock_id
-        )
+        await trade.create_or_update()
+        created += 1
+        LOGGER_.info("Created %d history trades for %s", 1, trade.stock_id)
 
     return created
 
