@@ -22,6 +22,9 @@ LOGGER_ = logging.getLogger("update_db")
 parser = argparse.ArgumentParser()
 parser.add_argument("--date", default="", help="Date to crawl")
 parser.add_argument("--test", action="store_true", help="Test mode", default=False)
+parser.add_argument(
+    "--tpex-only", action="store_true", help="Crawl tpex only", default=False
+)
 args = parser.parse_args()
 
 ua = UserAgent()
@@ -104,7 +107,7 @@ async def crawl_tpex_history_trades(
     for tr in tbody.find_all("tr"):  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
         try:
             trade = HistoryTrade.parse_tpex(
-                [td.text for td in tr.find_all("td")], datetime.date(2024, 10, 28)
+                [td.text for td in tr.find_all("td")], get_today()
             )
         except Exception:
             LOGGER_.exception("Error occurred while parsing tpex history trades")
@@ -153,13 +156,14 @@ async def main() -> None:
 
         total += await crawl_tpex_history_trades(session, date=today)
 
-        for stock_id, is_twse in stock_ids:
-            if len(stock_id) != 4 or not is_twse:
-                continue
+        if not args.tpex_only:
+            for stock_id, is_twse in stock_ids:
+                if len(stock_id) != 4 or not is_twse:
+                    continue
 
-            created = await crawl_twse_history_trades(stock_id, twse_date, session)
-            total += created
-            await asyncio.sleep(0.5)
+                created = await crawl_twse_history_trades(stock_id, twse_date, session)
+                total += created
+                await asyncio.sleep(0.5)
 
     LOGGER_.info("Total created: %d", total)
 
