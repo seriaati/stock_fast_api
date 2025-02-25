@@ -39,6 +39,7 @@ async def stock_history_trades(
     limit: Optional[int] = None,
     after_date: str | None = None,
     before_date: str | None = None,
+    date: str | None = None,
 ):
     query = HistoryTrade.filter(stock_id=stock_id).order_by("-date")
     if limit is not None:
@@ -47,8 +48,10 @@ async def stock_history_trades(
         query = query.filter(date__gte=after_date)
     if before_date is not None:
         query = query.filter(date__lte=before_date)
+    if date is not None:
+        query = query.filter(date=date)
 
-    return await query.all().values()
+    return await query.values()
 
 
 @app.get("/stocks")
