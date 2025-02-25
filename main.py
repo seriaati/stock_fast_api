@@ -1,3 +1,4 @@
+import datetime
 import os
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator, Optional
@@ -33,21 +34,21 @@ async def root():
 
 
 @app.get("/history_trades/{stock_id}")
-async def stock_history_trades(stock_id: str, limit: Optional[int] = None):
-    if limit is None:
-        return (
-            await HistoryTrade.filter(stock_id=stock_id)
-            .order_by("-date")
-            .all()
-            .values()
-        )
-    return (
-        await HistoryTrade.filter(stock_id=stock_id)
-        .order_by("-date")
-        .limit(limit)
-        .all()
-        .values()
-    )
+async def stock_history_trades(
+    stock_id: str,
+    limit: Optional[int] = None,
+    after_date: str | None = None,
+    before_date: str | None = None,
+):
+    query = HistoryTrade.filter(stock_id=stock_id).order_by("-date")
+    if limit is not None:
+        query = query.limit(limit)
+    if after_date is not None:
+        query = query.filter(date__gte=after_date)
+    if before_date is not None:
+        query = query.filter(date__lte=before_date)
+
+    return await query.all().values()
 
 
 @app.get("/stocks")
